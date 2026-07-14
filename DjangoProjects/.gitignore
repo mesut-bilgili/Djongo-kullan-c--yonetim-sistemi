@@ -1,0 +1,18 @@
+# Sanal ortamı gizle
+venv/
+.venv/
+ENV/
+env/
+
+# Python derleme dosyalarını gizle
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Veritabanını gizle (Eğer SQLite kullansaydın gizlerdik ama Mongo kullandığın için temiz kalsın diye ekliyoruz)
+*.sqlite3
+
+# İşletim sistemi dosyaları
+.DS_Store
+Thumbs.db

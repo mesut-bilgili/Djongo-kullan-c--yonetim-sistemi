@@ -1,0 +1,335 @@
+{% extends "tasks/base.html" %}
+
+{% block content %}
+
+<!-- 🚨 Django Mesajları (Hata veya Başarı Durumlarında Üstte Çıkar) -->
+{% if messages %}
+    <div class="row d-print-none">
+        <div class="col-12">
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<div class="row">
+
+    <!-- SOL TARAF (KAYITLAR) -->
+    <div class="col-lg-8">
+
+        <div class="card shadow" id="yazdirilacakAlan">
+
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <!-- 📊 Kayıt Sayacı -->
+                <h4 class="mb-0 d-flex align-items-center gap-2">
+                    Kayıtlar 
+                    <span class="badge bg-white text-primary fs-6" id="kayitSayaci">
+                        {{ persons|length }}
+                    </span>
+                </h4>
+                <div class="d-print-none">
+                    <!-- Admin Paneli Giriş Butonu -->
+                    <a href="/admin/" class="btn btn-warning btn-sm me-2 fw-bold text-dark">
+                        🔑 Admin Paneli
+                    </a>
+                    <!-- Yazdır Butonu -->
+                    <button onclick="tabloyuYazdir()" class="btn btn-light btn-sm">
+                        🖨️ Listeyi Yazdır
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body">
+
+                <!-- 🔍 Hızlı Arama Kutusu -->
+                <div class="mb-3 d-print-none">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light">🔍</span>
+                        <input 
+                            type="text" 
+                            id="aramaGirdisi" 
+                            class="form-control" 
+                            placeholder="Kayıtlarda ara (Ad, Soyad veya Telefon yazın)..." 
+                            onkeyup="tabloyuFiltrele()">
+                    </div>
+                </div>
+
+                <table class="table table-hover" id="kayitlarTablosu">
+
+                    <thead>
+                        <tr>
+                            <th>Ad</th>
+                            <th>Soyad</th>
+                            <th>Telefon</th>
+                            <th class="d-print-none">İşlemler</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for person in persons %}
+
+                        <tr class="tablo-satir">
+                            <td>{{ person.first_name }}</td>
+                            <td>{{ person.last_name }}</td>
+                            <td>{{ person.phone }}</td>
+
+                            <td class="d-print-none">
+                                <!-- Düzenle Butonu -->
+                                <button type="button" 
+                                        class="btn btn-warning btn-sm me-1"
+                                        onclick="düzenleModuAc('{{ person.id }}', '{{ person.first_name }}', '{{ person.last_name }}', '{{ person.tc_number }}', '{{ person.gender }}', '{{ person.phone }}', '{{ person.email }}', '{{ person.note }}')">
+                                    📝 Düzenle
+                                </button>
+
+                                <a href="{% url 'generate_pdf' person.id %}"
+                                   class="btn btn-danger btn-sm">
+                                    📄 PDF
+                                </a>
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+
+                        <tr id="bosSatir">
+                            <td colspan="4" class="text-center text-muted">
+                                Henüz kayıt yok.
+                            </td>
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- SAĞ TARAF (YENİ KAYIT / GÜNCELLEME FORMU) -->
+    <div class="col-lg-4 d-print-none">
+
+        <div class="card shadow">
+
+            <!-- Dinamik Başlık -->
+            <div class="card-header bg-success text-white" id="formBaslikKarti">
+                <h4 id="formBasligi">Yeni Kayıt</h4>
+            </div>
+
+            <div class="card-body">
+
+                <form method="POST" enctype="multipart/form-data" id="kayitFormu">
+
+                    {% csrf_token %}
+
+                    <!-- Güncelleme için gizli ID alanı -->
+                    <input type="hidden" name="person_id" id="form_person_id">
+
+                    <div class="mb-3">
+                        <label class="form-label">Ad</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="first_name"
+                            id="form_first_name"
+                            required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Soyad</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="last_name"
+                            id="form_last_name"
+                            required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">TC Kimlik</label>
+                        <!-- Sadece rakam kabul eder, maks 11 hane -->
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="tc_number"
+                            id="form_tc_number"
+                            maxlength="11"
+                            oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                            required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Cinsiyet</label>
+
+                        <select
+                            class="form-select"
+                            name="gender"
+                            id="form_gender">
+
+                            <option value="">Seçiniz</option>
+                            <option value="Erkek">Erkek</option>
+                            <option value="Kadın">Kadın</option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Telefon</label>
+                        <!-- Sadece rakam kabul eder, maks 11 hane -->
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="phone"
+                            id="form_phone"
+                            maxlength="11"
+                            oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">E-posta</label>
+                        <input
+                            type="email"
+                            class="form-control"
+                            name="email"
+                            id="form_email">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Not</label>
+
+                        <textarea
+                            class="form-control"
+                            rows="4"
+                            name="note"
+                            id="form_note"></textarea>
+
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Fotoğraf</label>
+
+                        <input
+                            type="file"
+                            class="form-control"
+                            name="photo">
+                        <small class="text-muted" id="fotoUyari" style="display:none;">Boş bırakırsanız mevcut fotoğraf korunur.</small>
+                    </div>
+
+                    <div class="d-grid gap-2">
+
+                        <button
+                            type="submit"
+                            class="btn btn-success"
+                            id="kaydetButonu">
+                            Kaydet
+                        </button>
+
+                        <button 
+                            type="button" 
+                            class="btn btn-secondary" 
+                            onclick="formuSifirla()">
+                            Formu Temizle
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Akıllı JavaScript Yönetimi -->
+<script>
+// 🔍 Hızlı Tablo Filtreleme ve Dinamik Sayıcı Fonksiyonu
+function tabloyuFiltrele() {
+    var input = document.getElementById("aramaGirdisi");
+    var filter = input.value.toLowerCase();
+    var rows = document.getElementsByClassName("tablo-satir");
+    var gorunurKayıtSayisi = 0;
+
+    for (var i = 0; i < rows.length; i++) {
+        var rowText = rows[i].textContent || rows[i].innerText;
+        
+        if (rowText.toLowerCase().indexOf(filter) > -1) {
+            rows[i].style.display = "";
+            gorunurKayıtSayisi++;
+        } else {
+            rows[i].style.display = "none";
+        }
+    }
+
+    document.getElementById("kayitSayaci").innerText = gorunurKayıtSayisi;
+}
+
+// Düzenle butonuna basıldığında form alanlarını dolduran fonksiyon
+function düzenleModuAc(id, ad, soyad, tc, cinsiyet, tel, eposta, not) {
+    document.getElementById('form_person_id').value = id;
+    document.getElementById('form_first_name').value = ad;
+    document.getElementById('form_last_name').value = soyad;
+    document.getElementById('form_tc_number').value = tc;
+    document.getElementById('form_gender').value = cinsiyet;
+    document.getElementById('form_phone').value = tel;
+    document.getElementById('form_email').value = eposta;
+    document.getElementById('form_note').value = not;
+
+    document.getElementById('formBasligi').innerText = "Kaydı Düzenle (" + ad + " " + soyad + ")";
+    
+    var baslikKarti = document.getElementById('formBaslikKarti');
+    baslikKarti.classList.remove('bg-success');
+    baslikKarti.classList.add('bg-warning', 'text-dark');
+
+    var buton = document.getElementById('kaydetButonu');
+    buton.innerText = "Değişiklikleri Kaydet";
+    buton.classList.remove('btn-success');
+    buton.classList.add('btn-warning', 'text-dark');
+
+    document.getElementById('fotoUyari').style.display = 'block';
+}
+
+// Formu sıfırlayıp Yeni Kayıt moduna döndüren fonksiyon
+function formuSifirla() {
+    document.getElementById('kayitFormu').reset();
+    document.getElementById('form_person_id').value = '';
+
+    document.getElementById('formBasligi').innerText = "Yeni Kayıt";
+    
+    var baslikKarti = document.getElementById('formBaslikKarti');
+    baslikKarti.classList.remove('bg-warning', 'text-dark');
+    baslikKarti.classList.add('bg-success', 'text-white');
+
+    var buton = document.getElementById('kaydetButonu');
+    buton.innerText = "Kaydet";
+    buton.classList.remove('btn-warning', 'text-dark');
+    buton.classList.add('btn-success');
+
+    document.getElementById('fotoUyari').style.display = 'none';
+}
+
+// Tablo Yazdırma Fonksiyonu
+function tabloyuYazdir() {
+    var yazdirilacakIcerik = document.getElementById('yazdirilacakAlan').innerHTML;
+    var orijinalSayfa = document.body.innerHTML;
+
+    document.body.innerHTML = yazdirilacakIcerik;
+    window.print();
+
+    document.body.innerHTML = orijinalSayfa;
+    window.location.reload();
+}
+</script>
+
+{% endblock %}
